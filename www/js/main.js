@@ -90,25 +90,12 @@ let card_sort = "get_day";
 let a2z = true;
 db_bridge = new DB_Bridge();
 
-async function init() { /* mobile app init */
-    try {
-        await db_bridge.mkfile();
-        let keys = Object.keys(default_setting);
-        for (let k of keys) {
-            db_bridge.setting_edit(k, default_setting[k]);
-        }
-        db_bridge.add
-    } catch {
-        error_toast("create error");
-    }
-}
-
 async function load() { /* カード読み込み Api -> Json -> card_set() */
     setting_json = await db_bridge.setting_open();
     console.log(setting_json)
     for (let k of Object.keys(default_setting)) {
         if (setting_json[k] === undefined) { /*  if not setting => edit */
-            db_bridge.setting_edit(k, default_setting[k])
+            await db_bridge.setting_edit(k, default_setting[k])
             setting_json[k] = default_setting[k];
         }
     }
@@ -119,7 +106,7 @@ async function load() { /* カード読み込み Api -> Json -> card_set() */
     }
 
     db = await db_bridge.open();
-    // console.log(db);
+    console.log(db);
     /* Sort Html */
     $("#card_sort").html(``);
     for (let key of Object.keys(example_json)) {
@@ -211,7 +198,7 @@ function card_set() {
             starOff: "img/icon/star-off.svg",
             starOn: "img/icon/star-on.svg",
             click: (score, event) => {
-                console.log(score); console.log(event);
+                console.log(score);
                 let index = Number(String(event.target.offsetParent.id).replace("db", ""))
                 for (let book of db) {
                     if (book["index"] === index) {
@@ -283,17 +270,20 @@ async function writer_view(e) { /* 内容編集のプロンプト */
         }
     }
     let keys = Object.keys(example_json)
-    let html = "";
+    let html = `<select id="edit_key" class="other_input" size="4">`;
     for (let k of keys) {
         let style = ""
+        let noti= ""
         if (Object.keys(book).indexOf(k) < 0 || !book[k]) { //bookにキーがないなら
             style = "background-color:#ff5a5a"
+            noti = "[未入力] "
         }
-        html += `<button style="${style}" onclick="write_content(${e},'${k}')">${jp_json[k]}</button>`
+        html += `<option style="${style}" value="${k}">${noti} ${jp_json[k]}</option>`
     }
+    html += `</select><button onclick="write_content(${e})">編集</button>`
     window_prompt("編集するものをクリック<br>"+html)
 }
-async function write_content(index, key) { /* 編集のinputプロンプト */
+async function write_content(index/*, key*/) { /* 編集のinputプロンプト */
     let book;
     for (let i of db) {
         if (i.index == index) {
@@ -301,6 +291,7 @@ async function write_content(index, key) { /* 編集のinputプロンプト */
             break;
         }
     }
+    let key = $("#edit_key").val()
     let res = await window_prompt(`${jp_json[key]}を入力<br>`, { "textarea": true ,"input_value":book[key]})
     if (res) {
         book[key] = res.replaceAll("\n", "<br>");
@@ -407,7 +398,7 @@ function setting(){
 
     $("#bg_img").click(async () => {
         console.log("file select")
-        await db_bridge.file_open()
+        arg = await db_bridge.file_open()
         console.log(arg);
         $("#bg_img_string").val(arg);
     })
@@ -549,8 +540,19 @@ $("#export_button").click(async () => {
     csv += "\n";
     }
     console.log(csv)
-    let arg = await db_bridge.file_download(csv)
-    info_toast(`エクスポートしました。\n${arg}`)
+    var blob = new Blob([ new Uint8Array([0xEF, 0xBB, 0xBF])/*bom*/, csv ], { "type" : "text/plain" });
+    if (window.navigator.msSaveBlob) {
+        window.navigator.msSaveBlob(blob, "test.txt");
+        // msSaveOrOpenBlobの場合はファイルを保存せずに開ける
+        window.navigator.msSaveOrOpenBlob(blob, "test.txt");
+    } else {
+        let download_elem = document.createElement("a");
+        download_elem.href = window.URL.createObjectURL(blob);
+        download_elem.download = "本棚.csv"
+        console.log(download_elem)
+        download_elem.click()
+    }
+    info_toast(`エクスポートしました。\n`)
 
 })
 $("#all_display").click(() => {
@@ -592,6 +594,14 @@ $("#string_search").change(() => {
 })
 $("#setting_button").click(() => {
     setting()
+})
+
+
+$(".button_open_button").click(() => {
+    $(".button_list").toggle()
+})
+$(".tool_open_button").click(() => {
+    $("#journal_bar").toggle()
 })
 /****************************************************************/
 /********************                   *************************/
@@ -766,8 +776,8 @@ async function isbn_add_yaml(isbn, tags = null) {/* 引数のISBNをyamlに登�
         let arg = await db_bridge.binary_save(json["cover_url"], isbn + "." + file_ext);
         console.log("img save ok");
         console.log(arg)
-        json["cover"] = arg;
-        await db_bridge.add((json))
+        json["cover"] = arg["dataText"];
+        await db_bridge.add(JSON.stringify(json))
         info_toast(`本を追加しました。(${json["title"]})`)
         $("#isbn_button").prop('disabled', false);
         $("#csv_isbn_button").prop("disabled",false)
@@ -776,7 +786,7 @@ async function isbn_add_yaml(isbn, tags = null) {/* 引数のISBNをyamlに登�
         load();
         return;
     } else {
-        await db_bridge.add((json))
+        await db_bridge.add(JSON.stringify(json))
         info_toast(`本を追加しました。(${json["title"]})`)
         $("#isbn_button").prop('disabled', false);
         $("#csv_isbn_button").prop("disabled",true)
@@ -789,14 +799,24 @@ async function camera_isbn() {/* Web Camからisbn取得 */
     desc_card.html(`
 <select id="camera_select" style="margin-block:0;" class="other_input"></select><br>
 <label>事前にタグをつける:<input class="other_input" style="margin-block:0;" typa="text" id="camera_taglist"/></label>
-<video style="max-width:90%;max-height:70%;" class="camera_video" id="player" controls playsinline muted autoplay></video>
+<video  autoplay muted playsinline style="max-width:90%;max-height:70%;" class="camera_video" id="player" controls playsinline muted autoplay></video>
 <canvas style="display:none;" id="canvasOutput"></canvas>
 <span id="isbn_check"></span>
 `)
     desc_card.show()
     $("#back_black").show()
     const video = document.getElementById('player');
+    const player = document.getElementById('player');
 
+    let constraints = {
+        video: true,
+        audio: false
+    };
+    if (!window.isSecureContext) {
+        error_toast("カメラは使用できません")
+    }
+    console.log(navigator.mediaDevices)
+    const stream = navigator.mediaDevices.getUserMedia(constraints);
     const devices = await navigator.mediaDevices.enumerateDevices();
     let cameras = []
     for (let d of devices) {
@@ -809,7 +829,7 @@ async function camera_isbn() {/* Web Camからisbn取得 */
     console.log(cameras)
 
     try {
-        let constraints = {
+        constraints = {
             video: {
                 deviceId: { exact: cameras[0]["deviceId"] }
             },
@@ -826,6 +846,7 @@ async function camera_isbn() {/* Web Camからisbn取得 */
         })
 
         async function capture() {
+            if (!player) { return; }
             let cap = new cv.VideoCapture(player);
             let src = new cv.Mat(player.height, player.width, cv.CV_8UC4);
             let dst = new cv.Mat();
@@ -956,4 +977,7 @@ async function api_re_get(index, openbd = true, ndl = true) {
     load()
     info_toast("再取得しました")
 }
-load()
+window.addEventListener("DOMContentLoaded", async () => {
+    await db_bridge.init()
+    load()
+})

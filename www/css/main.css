@@ -69,7 +69,7 @@ p {
 }.margin-div{
     height: calc(.5em*2/*バーのpadding*/ + 6em/*contentの高さ*/ + 1em /*追加余白*/);
 }#journal_bar{
-    padding-inline: 1.5em;
+    padding-inline: 1em;
     vertical-align: middle;
     overflow-x: scroll;
 }.journal_tag {
@@ -257,12 +257,14 @@ table td{ border: 1px solid #888; padding: 5px 10px; }
     padding-inline: 3em;
 }
 #journal_bar .other_input{
+    display: inline-block;
     width: fit-content;
-    margin: 0;
+    margin-block: 0 5px;
     margin-inline: .3em;
+    padding-block: 9px;
 }
 .none_img{
-    min-width: 90%;
+    min-width: 80%;
     padding-block: 1.5em;
     height: fit-content;
     display: block;
@@ -274,4 +276,85 @@ table td{ border: 1px solid #888; padding: 5px 10px; }
 #star img{
     margin-top: 5px;
     width: 1.5em;
+}
+
+option {
+    padding: 5px 10px;
+    margin-block: 2px;
+    border-radius: 5px;
+    background: #eee;
+}
+.flex_button {
+    display: none;
+    position: fixed;
+    right: 1em;
+}
+.button_open_button{
+    bottom: 6em;
+    &::before {
+        background: url("../img/icon/book1.svg") no-repeat;
+        content: "";
+        display: inline-block;
+        width: 2em;
+        height: 2em;
+        background-size: contain;
+        /* vertical-align: middle; */
+        transform: translate(0.5px, -0.7px);
+        position: absolute;
+        top: calc(50% - 1em);
+        left: calc(50% - 1em);
+    }
+}
+.tool_open_button{
+    bottom: 2em;
+    &::before {
+        background: url("../img/icon/search.svg") no-repeat;
+        content: "";
+        display: inline-block;
+        width: 2em;
+        height: 2em;
+        background-size: contain;
+        /* vertical-align: middle; */
+        transform: translate(0.5px, -0.7px);
+        position: absolute;
+        top: calc(50% - 1em);
+        left: calc(50% - 1em);
+    }
+}
+span#journal_bar br{display:none;}
+@media (max-width:1000px) {
+    .button_list{
+        display: none;
+        position: fixed;
+        background: white;
+        width: 100vw;
+        left: 0;
+        top: 0;
+        padding-inline: 1em;
+        padding-block: .5em;
+        text-align: center;
+    }
+    .button_open_button {
+        display: block;
+    }
+}
+@media (max-width:760px) {
+    #journal_bar{
+        display: none;
+        position: fixed;
+        background: white;
+        top: 0;
+        right: 0;
+        padding: 2em;
+        height: 50vh;
+    }
+    span#journal_bar br{
+        display: block;
+    }
+    .margin-div{
+        height:3.5em;
+    }
+    .tool_open_button{
+        display: block;
+    }
 }
