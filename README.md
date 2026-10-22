@@ -1,6 +1,6 @@
 # 本棚アプリ
 
-[GitHub Pagesでのデモ版](https://hiijii428.github.io/book-history-demo/main.html)
+[GitHub Pagesでのデモ版](https://hiijii428.github.io/book-history-demo/www/main.html)
 
 ## 概要
 

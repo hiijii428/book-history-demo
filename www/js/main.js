@@ -815,8 +815,7 @@ async function camera_isbn() {/* Web Camからisbn取得 */
     if (!window.isSecureContext) {
         error_toast("カメラは使用できません")
     }
-    console.log(navigator.mediaDevices)
-    const stream = navigator.mediaDevices.getUserMedia(constraints);
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     const devices = await navigator.mediaDevices.enumerateDevices();
     let cameras = []
     for (let d of devices) {
