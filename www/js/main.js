@@ -23,6 +23,9 @@
 /*********** debug **********/
 
 let debug_img_disabled = "disabled"  //enable => ""  画像をストップするか否か
+let githubpages = "true"            //github.ioだと、NDLがクロスオリジンで制限される。
+
+//github.ioの場合、画像保存をストップ（どう保存するか）
 
 /****************************/
 /****************************/
@@ -318,7 +321,7 @@ function comment_show(e) { /* 詳細の表示 */
     let desc_card = $("#desc_card");
     desc_card.html(`
                 <button class="edit_button icon_button" onclick="writer_view(${e})"></button>
-                <button class="reload_button icon_button" onclick="api_re_get(${e})"></button>
+                <button class="reload_button icon_button" onclick="api_re_get(${e},ndl=${!githubpages})"></button>
                 <button class="remove_button icon_button" onclick="book_rm(${e})"></button>
                 <div class='${img_class}' style="text-align:center;width:100%;">
                 <img class="cover_img" src='${book.img_path}'  onerror="this.src='img/no-cover.png'" width=200/></div>
@@ -360,8 +363,8 @@ function setting(){
         <h2>設定</h2>
         <p style="border-bottom:1px solid #aaa;">インターフェンス</p>
         <div class="other_input" style="width:80%;display:block;">
-            <label>壁紙を変更する:
-            <input class="other_button" style="background:#ddd;" type="text" id="bg_img_string" placeholder="初期値は\`default\`">
+            <label>壁紙を変更する: <b>disbaled</b>
+            <input disabled class="other_button" style="background:#ddd;" type="text" id="bg_img_string" placeholder="初期値は\`default\`">
             <button style="width:fit-content;" class="other_button" id="bg_img">開く</button>
             </label>
         </div>
@@ -381,9 +384,8 @@ function setting(){
         </div>
         <div class="other_input" style="width:80%;display:block;">
             <label>
-            NDL（国立国会図書館）APIを必ず使用する:
-            <input type="checkbox" value="true" id="ndl_search"/><br>
-            （通信時間が長くなります。Max 5-10s）
+            NDL（国立国会図書館）APIを必ず使用する: <b>disabled</b>
+            <input disabled type="checkbox" value="true" id="ndl_search"/><br>
             </label>
         </div>
         <button id="submit" class="other_button">適用</button>
@@ -595,6 +597,14 @@ $("#string_search").change(() => {
 $("#setting_button").click(() => {
     setting()
 })
+$("#about_button").click(async () => {
+    let desc_card = $("#desc_card");
+    let res = await (await fetch("./about.html")).text();
+    desc_card.html(res);
+    desc_card.css("overflow","scroll")
+    desc_card.show()
+    $("#back_black").show()
+})
 
 
 $(".button_open_button").click(() => {
@@ -619,85 +629,91 @@ $(".tool_open_button").click(() => {
 
 function openbd_api_get(isbn, json = null) {
     return new Promise(async (resolve, reject) => {
-        if (json === null) {
-            json = structuredClone(example_json);
-        }
-        /* OpenBD(book data)を叩く */
-        console.log('https://api.openbd.jp/v1/get?isbn=' + isbn + '&pretty')
-        let data = await fetch('https://api.openbd.jp/v1/get?isbn=' + isbn + '&pretty');
-        if (data.status !== 200) {
-            error_toast("リクエストエラー" + data.statusText)
-            console.log(data.statusText)
-            reject(text.statusText);
-        } else {
-            data = await data.json()
-            console.log(data)
-            json["isbn"] = isbn;              //isbn
-            if (data[0] != null) {
-                json["title"] = data[0]["summary"]["title"]            //title
-                json["title_kana"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["TitleDetail"]?.["TitleElement"]?.["TitleText"]?.["collationkey"]//titleカナ
-                json["publisher"] = data[0]["summary"]["pubrisher"] + "  " + data[0]["summary"]["series"]   //発行元
-                json["pubdate"] = data[0]["summary"]["pubdata"]        //発行日
-                json["author"] = data[0]["summary"]["author"].replace(",", " ")          //著者
-
-                json["author_desc"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["Contributor"]?.[0]?.["BiographicalNote"];//著者 詳細
-                json["author_kana"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["Contributor"]?.[0]?.["PersonName"]?.["collationkey"]?.replace(",", " "); //著者（カナ）
-
-                json["price"] = data[0]?.["onix"]?.["ProductSupply"]?.["SupplyDetail"]?.["Price"]?.[0]?.["PriceAmount"]; //金額
-                json["lang"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["Language"]?.[0]?.["CountryCode"];//言語
-                json["page"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["Extent"]?.[0]?.["ExtentValue"] //ページ数
-                let desc_data = data[0]?.["onix"]?.["CollateralDetail"]?.["TextContent"]; //本の詳細
-                if (desc_data) {
-                    for (l of desc_data) {
-                        json["descript"] += l["Text"] + "<br>　"
-                    }
-                }
-                json["cover_url"] = data[0]["summary"]["cover"];
-                resolve(json);
-            } else {
-                reject( "Book Not Found");
+        try {
+            if (json === null) {
+                json = structuredClone(example_json);
             }
+            /* OpenBD(book data)を叩く */
+            console.log('https://api.openbd.jp/v1/get?isbn=' + isbn + '&pretty')
+            let data = await fetch('https://api.openbd.jp/v1/get?isbn=' + isbn + '&pretty');
+            if (data.status !== 200) {
+                error_toast("リクエストエラー" + data.statusText)
+                console.log(data.statusText)
+                reject(text.statusText);
+            } else {
+                data = await data.json()
+                console.log(data)
+                json["isbn"] = isbn;              //isbn
+                if (data[0] != null) {
+                    json["title"] = data[0]["summary"]["title"]            //title
+                    json["title_kana"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["TitleDetail"]?.["TitleElement"]?.["TitleText"]?.["collationkey"]//titleカナ
+                    json["publisher"] = data[0]["summary"]["pubrisher"] + "  " + data[0]["summary"]["series"]   //発行元
+                    json["pubdate"] = data[0]["summary"]["pubdata"]        //発行日
+                    json["author"] = data[0]["summary"]["author"].replace(",", " ")          //著者
+
+                    json["author_desc"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["Contributor"]?.[0]?.["BiographicalNote"];//著者 詳細
+                    json["author_kana"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["Contributor"]?.[0]?.["PersonName"]?.["collationkey"]?.replace(",", " "); //著者（カナ）
+
+                    json["price"] = data[0]?.["onix"]?.["ProductSupply"]?.["SupplyDetail"]?.["Price"]?.[0]?.["PriceAmount"]; //金額
+                    json["lang"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["Language"]?.[0]?.["CountryCode"];//言語
+                    json["page"] = data[0]?.["onix"]?.["DescriptiveDetail"]?.["Extent"]?.[0]?.["ExtentValue"] //ページ数
+                    let desc_data = data[0]?.["onix"]?.["CollateralDetail"]?.["TextContent"]; //本の詳細
+                    if (desc_data) {
+                        for (l of desc_data) {
+                            json["descript"] += l["Text"] + "<br>　"
+                        }
+                    }
+                    json["cover_url"] = data[0]["summary"]["cover"];
+                    resolve(json);
+                } else {
+                    reject("Book Not Found");
+                }
+            }
+        } catch (e) {
+            console.error(e)
+            reject("ERROR! OpenBD API: "+e)
         }
     });
 }
 function ndl_api_get(isbn, json = null) {
     /**NDLから取得、promise関数、リクエスト失敗・データなしにはreject */
-    return new Promise(async(resolve, reject) => {
-        if (json === null) {
-            json = structuredClone(example_json);
-        }
-        let text = await fetch("https://ndlsearch.ndl.go.jp/api/opensearch?isbn=" + isbn)
-        if (text.status !== 200) {
-            error_toast("リクエストエラー" + text.statusText)
-            console.log(text.statusText)
-            reject( json );
-        } else {
-            text = await text.text()
-            const parser = new DOMParser();
-            const xml = parser.parseFromString(text, "text/xml");
-            let doc = xml.getElementsByTagName("item")[0]
-            // console.log(doc)
-            if (doc) {
-                json["title"] = doc.getElementsByTagName("title")[0].innerHTML ?? json["title"];
-                console.log(json["title"])
-                json["title_kana"] = doc.getElementsByTagName("dcndl:titleTranscription")[0]?.innerHTML ?? json["title_kana"];
-                json["author"] = doc.getElementsByTagName("author")[0]?.innerHTML?.split(",").at(-1) ?? json["author"];
-                json["publisher"] = doc.getElementsByTagName("dc:publisher")[0]?.innerHTML ?? json["publisher"];
-                json["lang"] = doc.getElementsByTagName("dcndl:publicationPlace")[0]?.innerHTML ?? json["lang"];
-                json["pubdate"] = doc.getElementsByTagName("dcterms:issued")[0]?.innerHTML ?? json["pubdate"];
-                json["page"] = doc.getElementsByTagName("dc:extent")[0]?.innerHTML.replace("p", "") ?? json["page"];
-                json["price"] = doc.getElementsByTagName("dcndl:price")[0]?.innerHTML.replace("円", "") ?? json["price"];
-            
-                // console.log(String(doc.innerHTML))
-                // console.log(String(doc.innerHTML).match(/<dc:subject/g));
-                // console.log(String(doc.innerHTML).match(/<dc:subject.*xsi:type="dcndl:NDC[0-9]+".*>[^<]*<\/dc:subject>/g)?.[0])
-                json["ndc"] = String(doc.innerHTML).match(/<dc:subject.*xsi:type="dcndl:NDC[0-9]+".*>[^<]*<\/dc:subject>/g)?.[0]?.match(">.*<")?.[0]?.match("[0-9]{3}")?.[0] ?? json["ndc"];
-
-                json["descript"] += "（" + doc.getElementsByTagName(`link`)[0]?.innerHTML + "（国立国会図書館リンク)）\n";
-                resolve(json);
-            } else {
-                reject( "Book Not Found")
+    return new Promise(async (resolve, reject) => {
+        try {
+            if (json === null) {
+                json = structuredClone(example_json);
             }
+            let text = await fetch("https://ndlsearch.ndl.go.jp/api/opensearch?isbn=" + isbn)
+            if (text.status !== 200) {
+                error_toast("リクエストエラー" + text.statusText)
+                console.log(text.statusText)
+                reject(json);
+            } else {
+                text = await text.text()
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(text, "text/xml");
+                let doc = xml.getElementsByTagName("item")[0]
+                // console.log(doc)
+                if (doc) {
+                    json["title"] = doc.getElementsByTagName("title")[0].innerHTML ?? json["title"];
+                    console.log(json["title"])
+                    json["title_kana"] = doc.getElementsByTagName("dcndl:titleTranscription")[0]?.innerHTML ?? json["title_kana"];
+                    json["author"] = doc.getElementsByTagName("author")[0]?.innerHTML?.split(",").at(-1) ?? json["author"];
+                    json["publisher"] = doc.getElementsByTagName("dc:publisher")[0]?.innerHTML ?? json["publisher"];
+                    json["lang"] = doc.getElementsByTagName("dcndl:publicationPlace")[0]?.innerHTML ?? json["lang"];
+                    json["pubdate"] = doc.getElementsByTagName("dcterms:issued")[0]?.innerHTML ?? json["pubdate"];
+                    json["page"] = doc.getElementsByTagName("dc:extent")[0]?.innerHTML.replace("p", "") ?? json["page"];
+                    json["price"] = doc.getElementsByTagName("dcndl:price")[0]?.innerHTML.replace("円", "") ?? json["price"];
+                    json["ndc"] = String(doc.innerHTML).match(/<dc:subject.*xsi:type="dcndl:NDC[0-9]+".*>[^<]*<\/dc:subject>/g)?.[0]?.match(">.*<")?.[0]?.match("[0-9]{3}")?.[0] ?? json["ndc"];
+
+                    json["descript"] += "（" + doc.getElementsByTagName(`link`)[0]?.innerHTML + "（国立国会図書館リンク)）\n";
+                    resolve(json);
+                } else {
+                    reject("Book Not Found")
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            reject("Error! NDL API"+e)
         }
     });
 }
@@ -809,7 +825,7 @@ async function camera_isbn() {/* Web Camからisbn取得 */
     const player = document.getElementById('player');
 
     let constraints = {
-        video: true,
+        video: {facingMode: { exact: "environment" }},
         audio: false
     };
     if (!window.isSecureContext) {
@@ -953,12 +969,12 @@ async function api_re_get(index, openbd = true, ndl = true) {
             break;
         }
     }
-    info_toast(`${json["title"]}を再取得します。`)
+    info_toast(`${json["title"]}を再取得します。`);
     if (openbd) {
         try {
             json = await openbd_api_get(isbn, json = json)
         } catch (e){
-            warn_toast("NDL: " + e);
+            warn_toast("OpenBD: " + e);
         }
     }
     if (ndl) {
@@ -976,6 +992,8 @@ async function api_re_get(index, openbd = true, ndl = true) {
     load()
     info_toast("再取得しました")
 }
+
+
 window.addEventListener("DOMContentLoaded", async () => {
     await db_bridge.init()
     load()

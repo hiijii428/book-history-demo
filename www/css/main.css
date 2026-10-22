@@ -160,6 +160,15 @@ p {
     background-size: contain;
     vertical-align: middle;
     background: url("../img/icon/setting.svg") no-repeat;
+}.icon_button.about_button::before{
+    content: "";
+    display: inline-block;
+    width: 2em;
+    height: 2em;
+    transform: translate(0.5px, -0.7px);
+    background-size: contain;
+    vertical-align: middle;
+    background: url("../img/icon/about.svg") no-repeat;
 }
 
 img{
